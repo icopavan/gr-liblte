@@ -1,0 +1,1 @@
+/usr/bin/c++   -g    CMakeFiles/_liblte_swig_doc_tag.dir/_liblte_swig_doc_tag.cpp.o  -o _liblte_swig_doc_tag -rdynamic 

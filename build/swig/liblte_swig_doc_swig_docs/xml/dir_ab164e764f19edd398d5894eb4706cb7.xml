@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<doxygen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="compound.xsd" version="1.7.6.1">
+  <compounddef id="dir_ab164e764f19edd398d5894eb4706cb7" kind="dir">
+    <compoundname>/home/suttonpd/code/checkout/github/suttonpd/gr-liblte/include/liblte/</compoundname>
+    <innerfile refid="api_8h">api.h</innerfile>
+    <innerfile refid="pbch__ue_8h">pbch_ue.h</innerfile>
+    <briefdescription>
+    </briefdescription>
+    <detaileddescription>
+    </detaileddescription>
+    <location file="/home/suttonpd/code/checkout/github/suttonpd/gr-liblte/include/liblte/"/>
+  </compounddef>
+</doxygen>
