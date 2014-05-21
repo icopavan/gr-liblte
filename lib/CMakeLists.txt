@@ -28,10 +28,10 @@ include_directories(
 )
 
 ########################################################################
-# Build standalone test
+# Build standalone tests
 ########################################################################
 message(STATUS "LIBLTE_LIBRARIES:" ${LIBLTE_LIBRARIES})
-add_executable(sanity_check sanity_check.cpp)
+#add_executable(sanity_check sanity_check.cpp)
 add_executable(wrapper_test wrapper_test.cpp pbch_ue_wrapper.cc)
 target_link_libraries(wrapper_test ${LIBLTE_LIBRARIES})
 
