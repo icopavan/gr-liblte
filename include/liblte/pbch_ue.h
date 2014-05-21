@@ -23,7 +23,7 @@
 #define INCLUDED_LIBLTE_PBCH_UE_H
 
 #include <liblte/api.h>
-#include <gnuradio/block.h>
+#include <gnuradio/sync_block.h>
 
 namespace gr {
   namespace liblte {
@@ -33,7 +33,7 @@ namespace gr {
      * \ingroup liblte
      *
      */
-    class LIBLTE_API pbch_ue : virtual public gr::block
+    class LIBLTE_API pbch_ue : virtual public gr::sync_block
     {
      public:
       typedef boost::shared_ptr<pbch_ue> sptr;

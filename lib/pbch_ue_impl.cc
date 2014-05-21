@@ -40,7 +40,7 @@ namespace gr {
      * The private constructor
      */
     pbch_ue_impl::pbch_ue_impl()
-      : gr::block("pbch_ue",
+      : gr::sync_block("pbch_ue",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
               gr::io_signature::make(0, 0, 0))
     {
@@ -56,15 +56,14 @@ namespace gr {
     }
 
     int
-    pbch_ue_impl::general_work (int noutput_items,
-                       gr_vector_int &ninput_items,
+    pbch_ue_impl::work (int noutput_items,
                        gr_vector_const_void_star &input_items,
                        gr_vector_void_star &output_items)
     {
         const gr_complex *in = (const gr_complex *) input_items[0];
 
         // Do <+signal processing+>
-        wrapper->process((cf_t*)in, ninput_items[0]);
+        wrapper->process((cf_t*)in, noutput_items);
 
         // Tell runtime system how many output items we produced.
         return noutput_items;
