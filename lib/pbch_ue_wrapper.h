@@ -2,7 +2,6 @@
 #define PBCH_UE_WRAPPER_H
 
 #include "lte.h"
-#include "plot.h"
 
 enum sync_state {FIND, TRACK};
 
@@ -15,23 +14,17 @@ public:
   void test();
 
 private:
-  void init_plots();
   int base_init(int frame_length);
   void base_free();
   int mib_decoder_init(int cell_id);
   int mib_decoder_run(cf_t *input, pbch_mib_t *mib);
   int process_frame();
 
-  plot_real_t poutfft;
-  plot_complex_t pce;
-  plot_scatter_t pscatrecv, pscatequal;
-
   float find_threshold;
   float track_threshold;
   int max_track_lost;
   int nof_slots;
   int track_len;
-  int disable_plots;
 
   filesource_t fsrc;
   cf_t *input_buffer, *fft_buffer, *ce[MAX_PORTS_CTRL];

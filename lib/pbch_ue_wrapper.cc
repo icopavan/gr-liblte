@@ -16,7 +16,6 @@ pbch_ue_wrapper::pbch_ue_wrapper()
     max_track_lost(20),
     nof_slots(-1),
     track_len(300),
-    disable_plots(0),
     buffer_idx(0)
 {
   base_init(FLEN);
@@ -27,42 +26,8 @@ pbch_ue_wrapper::~pbch_ue_wrapper()
   base_free();
 }
 
-void pbch_ue_wrapper::test(){
-
-}
-
-void pbch_ue_wrapper::init_plots() {
-  plot_init();
-  plot_real_init(&poutfft);
-  plot_real_setTitle(&poutfft, "Output FFT - Magnitude");
-  plot_real_setLabels(&poutfft, "Index", "dB");
-  plot_real_setYAxisScale(&poutfft, -60, 0);
-  plot_real_setXAxisScale(&poutfft, 1, 504);
-
-  plot_complex_init(&pce);
-  plot_complex_setTitle(&pce, "Channel Estimates");
-  plot_complex_setYAxisScale(&pce, Ip, -0.01, 0.01);
-  plot_complex_setYAxisScale(&pce, Q, -0.01, 0.01);
-  plot_complex_setYAxisScale(&pce, Magnitude, 0, 0.01);
-  plot_complex_setYAxisScale(&pce, Phase, -M_PI, M_PI);
-
-  plot_scatter_init(&pscatrecv);
-  plot_scatter_setTitle(&pscatrecv, "Received Symbols");
-  plot_scatter_setXAxisScale(&pscatrecv, -0.01, 0.01);
-  plot_scatter_setYAxisScale(&pscatrecv, -0.01, 0.01);
-
-  plot_scatter_init(&pscatequal);
-  plot_scatter_setTitle(&pscatequal, "Equalized Symbols");
-  plot_scatter_setXAxisScale(&pscatequal, -1, 1);
-  plot_scatter_setYAxisScale(&pscatequal, -1, 1);
-}
-
 int pbch_ue_wrapper::base_init(int frame_length) {
   int i;
-
-  if (!disable_plots) {
-    init_plots();
-  }
 
   input_buffer = (cf_t*) malloc(frame_length * sizeof(cf_t));
   if (!input_buffer) {
@@ -126,7 +91,6 @@ int pbch_ue_wrapper::base_init(int frame_length) {
 
 void pbch_ue_wrapper::base_free() {
   int i;
-  plot_exit();
 
   sync_free(&sfind);
   sync_free(&strack);
@@ -167,19 +131,6 @@ int pbch_ue_wrapper::mib_decoder_run(cf_t *input, pbch_mib_t *mib) {
 
   DEBUG("Decoding PBCH\n", 0);
   n = pbch_decode(&pbch, fft_buffer, ce, 1, mib);
-
-  float tmp[72*7];
-  if (!disable_plots) {
-    for (i=0;i<72*7;i++) {
-      tmp[i] = 10*log10f(cabsf(fft_buffer[i]));
-    }
-    plot_real_setNewData(&poutfft, tmp, 72*7);
-    plot_complex_setNewData(&pce, ce[0], 72*7);
-    plot_scatter_setNewData(&pscatrecv, pbch.pbch_symbols[0], pbch.nof_symbols);
-    if (n) {
-      plot_scatter_setNewData(&pscatequal, pbch.pbch_d, pbch.nof_symbols);
-    }
-  }
 
   return n;
 }
