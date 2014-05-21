@@ -38,7 +38,7 @@ namespace gr {
       ~pbch_ue_impl();
 
       // Where all the action really happens
-      void forecast (int noutput_items, gr_vector_int &ninput_items_required);
+      //void forecast (int noutput_items, gr_vector_int &ninput_items_required);
 
       int general_work(int noutput_items,
 		       gr_vector_int &ninput_items,

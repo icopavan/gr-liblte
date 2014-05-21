@@ -1,6 +1,7 @@
 #include "pbch_ue_wrapper.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define MHZ 			    1000000
 #define SAMP_FREQ 		1920000
@@ -15,8 +16,19 @@ pbch_ue_wrapper::pbch_ue_wrapper()
     max_track_lost(20),
     nof_slots(-1),
     track_len(300),
-    disable_plots(0)
+    disable_plots(0),
+    buffer_idx(0)
 {
+  base_init(FLEN);
+}
+
+pbch_ue_wrapper::~pbch_ue_wrapper()
+{
+  base_free();
+}
+
+void pbch_ue_wrapper::test(){
+
 }
 
 void pbch_ue_wrapper::init_plots() {
@@ -94,6 +106,21 @@ int pbch_ue_wrapper::base_init(int frame_length) {
     return -1;
   }
 
+  sync_pss_det_peak_to_avg(&sfind);
+  sync_pss_det_peak_to_avg(&strack);
+
+  nof_found_mib = 0;
+  timeoffset = 0;
+  state = FIND;
+  nslot = 0;
+  find_idx = 0;
+  cfo = 0;
+  mib.sfn = -1;
+  frame_cnt = 0;
+  last_found = 0;
+  sync_set_threshold(&sfind, find_threshold);
+  sync_force_N_id_2(&sfind, -1);
+
   return 0;
 }
 
@@ -155,4 +182,119 @@ int pbch_ue_wrapper::mib_decoder_run(cf_t *input, pbch_mib_t *mib) {
   }
 
   return n;
+}
+
+int pbch_ue_wrapper::process(cf_t* input, int n) {
+  while(n > 0) {
+    if( n >= FLEN-buffer_idx) {
+      memcpy(&input_buffer[buffer_idx], input, (FLEN-buffer_idx)*sizeof(cf_t));
+      n -= FLEN-buffer_idx;
+      input += FLEN-buffer_idx;
+      process_frame();
+      buffer_idx = 0;
+    }else{
+      memcpy(&input_buffer[buffer_idx], input, n*sizeof(cf_t));
+      buffer_idx += n;
+      n = 0;
+    }
+  }
+}
+
+int pbch_ue_wrapper::process_frame() {
+  switch(state) {
+  case FIND:
+    /* find peak in all frame */
+    find_idx = sync_run(&sfind, input_buffer);
+    INFO("FIND %3d:\tPAR=%.2f\n", frame_cnt, sync_get_peak_to_avg(&sfind));
+    if (find_idx != -1) {
+      /* if found peak, go to track and set track threshold */
+      cell_id = sync_get_cell_id(&sfind);
+      if (cell_id != -1) {
+        frame_cnt = -1;
+        last_found = 0;
+        sync_set_threshold(&strack, track_threshold);
+        sync_force_N_id_2(&strack, sync_get_N_id_2(&sfind));
+        sync_force_cp(&strack, sync_get_cp(&sfind));
+        mib_decoder_init(cell_id);
+        nof_found_mib = 0;
+        nslot = sync_get_slot_id(&sfind);
+        nslot=(nslot+10)%20;
+        cfo = 0;
+        timeoffset = 0;
+        printf("\n");
+        state = TRACK;
+      } else {
+        printf("cellid=-1\n");
+      }
+    }
+    if (verbose == VERBOSE_NONE) {
+      printf("Finding PSS... PAR=%.2f\r", sync_get_peak_to_avg(&sfind));
+    }
+    break;
+  case TRACK:
+    /* Find peak around known position find_idx */
+    INFO("TRACK %3d: PSS find_idx %d offset %d\n", frame_cnt, find_idx, find_idx - track_len);
+    track_idx = sync_run(&strack, &input_buffer[find_idx - track_len]);
+
+    if (track_idx != -1) {
+      /* compute cumulative moving average CFO */
+      cfo = (sync_get_cfo(&strack) + frame_cnt * cfo) / (frame_cnt + 1);
+      /* compute cumulative moving average time offset */
+      timeoffset = (float) (track_idx-track_len + timeoffset * frame_cnt) / (frame_cnt + 1);
+      last_found = frame_cnt;
+      find_idx = (find_idx + track_idx - track_len)%FLEN;
+      if (nslot != sync_get_slot_id(&strack)) {
+        INFO("Expected slot %d but got %d\n", nslot, sync_get_slot_id(&strack));
+        printf("\r\n");
+        fflush(stdout);
+        printf("\r\n");
+        state = FIND;
+      }
+    } else {
+      /* if sync not found, adjust time offset with the averaged value */
+      find_idx = (find_idx + (int) timeoffset)%FLEN;
+    }
+
+    /* if we missed too many PSS go back to FIND */
+    if (frame_cnt - last_found > max_track_lost) {
+      INFO("%d frames lost. Going back to FIND", frame_cnt - last_found);
+      printf("\r\n");
+      fflush(stdout);
+      printf("\r\n");
+      state = FIND;
+    }
+
+    // Correct CFO
+    INFO("Correcting CFO=%.4f\n", cfo);
+
+    cfo_correct(&cfocorr, input_buffer, -cfo/128);
+
+    if (nslot == 0 && find_idx + 960 < FLEN) {
+      INFO("Finding MIB at idx %d\n", find_idx);
+      if (mib_decoder_run(&input_buffer[find_idx], &mib)) {
+        INFO("MIB detected attempt=%d\n", frame_cnt);
+        if (verbose == VERBOSE_NONE) {
+          if (!nof_found_mib) {
+            printf("\r\n");
+            fflush(stdout);
+            printf("\r\n");
+            printf(" - Phy. CellId:\t%d\n", cell_id);
+            pbch_mib_fprint(stdout, &mib);
+          }
+        }
+        nof_found_mib++;
+      } else {
+        INFO("MIB not found attempt %d\n",frame_cnt);
+      }
+      if (frame_cnt) {
+        printf("SFN: %4d, CFO: %+.4f KHz, SFO: %+.4f Khz, TimeOffset: %4d, Errors: %4d/%4d, ErrorRate: %.1e\r", mib.sfn,
+            cfo*15, timeoffset/5, find_idx, frame_cnt-2*(nof_found_mib-1), frame_cnt,
+            (float) (frame_cnt-2*(nof_found_mib-1))/frame_cnt);
+        fflush(stdout);
+      }
+    }
+    nslot = (nslot+10)%20;
+    break;
+  }
+  frame_cnt++;
 }

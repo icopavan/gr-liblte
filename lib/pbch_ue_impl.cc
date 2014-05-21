@@ -64,6 +64,7 @@ namespace gr {
         const gr_complex *in = (const gr_complex *) input_items[0];
 
         // Do <+signal processing+>
+        wrapper->process((cf_t*)in, ninput_items[0]);
 
         // Tell runtime system how many output items we produced.
         return noutput_items;
